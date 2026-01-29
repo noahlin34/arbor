@@ -1,8 +1,12 @@
-# arbor 🌳
+# 🌳 arbor 
 
 A fast, beautiful Git commit tree for your terminal. **arbor** renders your repository history as a color‑coded branching graph with a responsive TUI, a detail sidebar, and a curated forest palette that adapts to light and dark terminals.
 
 <p align="center">🌲 smooth scrolling • 🔎 instant search • 🧭 branch‑aware graph • 🧩 MVU architecture</p>
+
+---
+
+<p align="center" > <img width="837" height="580" alt="Screenshot 2026-01-29 at 1 18 26 AM" src="https://github.com/user-attachments/assets/95f6fb40-72be-41f0-a997-adf3d28a4884" /> </p>
 
 ---
 
