@@ -18,8 +18,9 @@ type model struct {
 	provider *gitgraph.CommitProvider
 	headName string
 
-	width  int
-	height int
+	width     int
+	height    int
+	didLayout bool
 
 	cursor int
 	offset int
@@ -58,11 +59,22 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if !m.didLayout {
+			m.cursor = 0
+			m.offset = 0
+			m.didLayout = true
+		}
 		m.ensureVisible()
+		m.normalizePosition()
 		return m, nil
 	case tea.KeyMsg:
 		if m.searchActive {
-			return m.handleSearchKey(msg)
+			next, cmd := m.handleSearchKey(msg)
+			if mm, ok := next.(*model); ok {
+				mm.ensureVisible()
+				mm.normalizePosition()
+			}
+			return next, cmd
 		}
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -76,10 +88,12 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "/":
 			m.searchActive = true
 			m.searchQuery = m.filter
+			m.normalizePosition()
 		case "tab":
 			m.showSidebar = !m.showSidebar
 		}
 		m.ensureVisible()
+		m.normalizePosition()
 		return m, nil
 	}
 	return m, nil
@@ -115,7 +129,6 @@ func (m *model) renderList(width int) string {
 	if width <= 0 {
 		return ""
 	}
-	m.ensureVisible()
 	viewport := m.viewportHeight()
 	lines := make([]string, 0, viewport)
 	listLen := m.listLength()
@@ -177,7 +190,7 @@ func (m *model) renderRow(commit *gitgraph.CommitInfo, selected bool, width int,
 func (m *model) renderSidebar(width int) string {
 	commit := m.selectedCommit()
 	if commit == nil {
-		return sidebarStyle.Width(width).Render("No commit selected")
+		return sidebarStyle.Width(width).MaxHeight(m.viewportHeight()).Render("No commit selected")
 	}
 	lines := []string{
 		sidebarTitleStyle.Render(commit.ShortHash),
@@ -196,7 +209,7 @@ func (m *model) renderSidebar(width int) string {
 		}
 	}
 
-	return sidebarStyle.Width(width).Render(strings.Join(lines, "\n"))
+	return sidebarStyle.Width(width).MaxHeight(m.viewportHeight()).Render(strings.Join(lines, "\n"))
 }
 
 func (m *model) searchView(width int) string {
@@ -343,6 +356,25 @@ func (m *model) changedFiles(commit *gitgraph.CommitInfo) []string {
 	}
 	m.filesCache[key] = files
 	return files
+}
+
+func (m *model) normalizePosition() {
+	listLen := m.listLength()
+	if listLen == 0 {
+		m.cursor = 0
+		m.offset = 0
+		return
+	}
+	m.cursor = clamp(m.cursor, 0, listLen-1)
+	viewport := m.viewportHeight()
+	maxOffset := max(0, listLen-viewport)
+	m.offset = clamp(m.offset, 0, maxOffset)
+	if m.cursor < m.offset {
+		m.offset = m.cursor
+	}
+	if m.cursor >= m.offset+viewport {
+		m.offset = m.cursor - viewport + 1
+	}
 }
 
 func renderGraph(cells []gitgraph.GraphCell, bg lipgloss.TerminalColor) string {
