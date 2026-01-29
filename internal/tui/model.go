@@ -16,6 +16,7 @@ import (
 type model struct {
 	repoPath string
 	provider *gitgraph.CommitProvider
+	headName string
 
 	width  int
 	height int
@@ -36,10 +37,11 @@ type model struct {
 	err        error
 }
 
-func NewModel(path string, provider *gitgraph.CommitProvider) tea.Model {
+func NewModel(path string, provider *gitgraph.CommitProvider, headName string) tea.Model {
 	m := &model{
 		repoPath:    path,
 		provider:    provider,
+		headName:    headName,
 		showSidebar: true,
 		filesCache:  make(map[string][]string),
 	}
@@ -162,11 +164,13 @@ func (m *model) renderRow(commit *gitgraph.CommitInfo, selected bool, width int,
 	}
 
 	graph := renderGraph(commit.Graph, bg)
+	space := rowSpacerStyle.Background(bg).Render(" ")
+	sep := rowSeparatorStyle.Foreground(palette.textDim).Background(bg).Render(" - ")
 	hash := hashStyle.Foreground(palette.accent).Background(bg).Render(commit.ShortHash)
 	subject := subjectStyle.Foreground(subjectColor).Background(bg).Render(commit.Subject)
 	author := authorStyle.Foreground(authorColor).Background(bg).Render(commit.Author)
-	meta := fmt.Sprintf("%s %s - %s", hash, subject, author)
-	row := fmt.Sprintf("%s %s", graph, meta)
+	meta := hash + space + subject + sep + author
+	row := graph + space + meta
 	return rowBaseStyle.Foreground(fg).Background(bg).Width(width).MaxWidth(width).Render(row)
 }
 
@@ -393,6 +397,9 @@ func (m *model) headerView(width int) string {
 	if m.filter != "" {
 		leftParts = append(leftParts, headerFilterStyle.Render(fmt.Sprintf("/%s", m.filter)))
 	}
+	if m.headName != "" {
+		leftParts = append(leftParts, headerBadgeStyle.Render(fmt.Sprintf("branch %s", m.headName)))
+	}
 	left := strings.Join(leftParts, " ")
 
 	visible := m.listLength()
@@ -589,12 +596,15 @@ var (
 	headerFilterStyle = lipgloss.NewStyle().Foreground(palette.accentAlt).Background(palette.headerBg)
 	headerSepStyle    = lipgloss.NewStyle().Foreground(palette.textDim).Background(palette.headerBg)
 	headerMetaStyle   = lipgloss.NewStyle().Foreground(palette.textDim).Background(palette.headerBg)
+	headerBadgeStyle  = lipgloss.NewStyle().Foreground(palette.highlightText).Background(palette.accent).Padding(0, 1)
 
-	listStyle    = lipgloss.NewStyle()
-	rowBaseStyle = lipgloss.NewStyle().Bold(false)
-	hashStyle    = lipgloss.NewStyle().Foreground(palette.accent).Bold(true)
-	subjectStyle = lipgloss.NewStyle().Foreground(palette.text).Bold(true)
-	authorStyle  = lipgloss.NewStyle().Foreground(palette.textMuted)
+	listStyle         = lipgloss.NewStyle()
+	rowBaseStyle      = lipgloss.NewStyle().Bold(false)
+	rowSeparatorStyle = lipgloss.NewStyle()
+	rowSpacerStyle    = lipgloss.NewStyle()
+	hashStyle         = lipgloss.NewStyle().Foreground(palette.accent).Bold(true)
+	subjectStyle      = lipgloss.NewStyle().Foreground(palette.text).Bold(true)
+	authorStyle       = lipgloss.NewStyle().Foreground(palette.textMuted)
 
 	sidebarStyle         = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(palette.panelBorder).Padding(0, 1).Background(palette.panelBg).Foreground(palette.text)
 	sidebarTitleStyle    = lipgloss.NewStyle().Bold(true).Foreground(palette.accentAlt).Background(palette.panelBg)

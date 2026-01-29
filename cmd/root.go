@@ -29,7 +29,8 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		model := tui.NewModel(path, provider)
+		headName := headLabel(repo)
+		model := tui.NewModel(path, provider, headName)
 		program := tea.NewProgram(model, tea.WithAltScreen())
 		_, err = program.Run()
 		return err
@@ -58,4 +59,19 @@ func openRepo() (*git.Repository, string, error) {
 		return repo, "", nil
 	}
 	return repo, wt.Filesystem.Root(), nil
+}
+
+func headLabel(repo *git.Repository) string {
+	head, err := repo.Head()
+	if err != nil {
+		return ""
+	}
+	if head.Name().IsBranch() {
+		return head.Name().Short()
+	}
+	hash := head.Hash()
+	if hash.IsZero() {
+		return "detached"
+	}
+	return fmt.Sprintf("detached@%s", hash.String()[:7])
 }
