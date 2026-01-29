@@ -159,12 +159,11 @@ func (m *model) renderList(width int) string {
 		rowIndex := start + i
 		lines = append(lines, m.blankRow(width, rowIndex%2 == 1))
 	}
-	return listStyle.Width(width).MaxWidth(width).Render(strings.Join(lines, "\n"))
+	return strings.Join(lines, "\n")
 }
 
 func (m *model) renderRow(commit *gitgraph.CommitInfo, selected bool, width int, alt bool) string {
 	bg := palette.bg
-	fg := palette.text
 	subjectColor := palette.text
 	authorColor := palette.textMuted
 	if alt {
@@ -172,7 +171,6 @@ func (m *model) renderRow(commit *gitgraph.CommitInfo, selected bool, width int,
 	}
 	if selected {
 		bg = palette.highlightBg
-		fg = palette.highlightText
 		subjectColor = palette.highlightText
 		authorColor = palette.highlightText
 	}
@@ -185,8 +183,7 @@ func (m *model) renderRow(commit *gitgraph.CommitInfo, selected bool, width int,
 	author := authorStyle.Foreground(authorColor).Background(bg).Render(commit.Author)
 	meta := hash + space + subject + sep + author
 	row := graph + space + meta
-	line := padLine(row, width)
-	return rowBaseStyle.Foreground(fg).Background(bg).Render(line)
+	return fitLine(row, width, bg)
 }
 
 func (m *model) renderSidebar(width int) string {
@@ -509,8 +506,7 @@ func (m *model) layoutHeights() (int, int, int) {
 func (m *model) emptyRow(width int) string {
 	bg := palette.bg
 	msg := emptyStyle.Foreground(palette.textDim).Background(bg).Render("No commits")
-	line := padLine(msg, width)
-	return rowBaseStyle.Foreground(palette.textDim).Background(bg).Render(line)
+	return fitLine(msg, width, bg)
 }
 
 func (m *model) blankRow(width int, alt bool) string {
@@ -518,8 +514,7 @@ func (m *model) blankRow(width int, alt bool) string {
 	if alt {
 		bg = palette.bgAlt
 	}
-	line := padLine("", width)
-	return rowBaseStyle.Background(bg).Render(line)
+	return fitLine("", width, bg)
 }
 
 func wrapText(text string, width int) []string {
@@ -563,7 +558,7 @@ func truncateText(text string, maxWidth int) string {
 	return text[:maxWidth-3] + "..."
 }
 
-func padLine(text string, width int) string {
+func fitLine(text string, width int, bg lipgloss.TerminalColor) string {
 	if width <= 0 {
 		return text
 	}
@@ -572,7 +567,10 @@ func padLine(text string, width int) string {
 	if pad < 0 {
 		pad = 0
 	}
-	return truncated + strings.Repeat(" ", pad)
+	if pad == 0 {
+		return truncated
+	}
+	return truncated + rowSpacerStyle.Background(bg).Render(strings.Repeat(" ", pad))
 }
 
 func clamp(val, minVal, maxVal int) int {
@@ -660,8 +658,6 @@ var (
 	headerMetaStyle   = lipgloss.NewStyle().Foreground(palette.textDim).Background(palette.headerBg)
 	headerBadgeStyle  = lipgloss.NewStyle().Foreground(palette.highlightText).Background(palette.accent).Padding(0, 1)
 
-	listStyle         = lipgloss.NewStyle()
-	rowBaseStyle      = lipgloss.NewStyle().Bold(false)
 	rowSeparatorStyle = lipgloss.NewStyle()
 	rowSpacerStyle    = lipgloss.NewStyle()
 	hashStyle         = lipgloss.NewStyle().Foreground(palette.accent).Bold(true)
