@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -184,7 +185,8 @@ func (m *model) renderRow(commit *gitgraph.CommitInfo, selected bool, width int,
 	author := authorStyle.Foreground(authorColor).Background(bg).Render(commit.Author)
 	meta := hash + space + subject + sep + author
 	row := graph + space + meta
-	return rowBaseStyle.Foreground(fg).Background(bg).Width(width).MaxWidth(width).Render(row)
+	line := padLine(row, width)
+	return rowBaseStyle.Foreground(fg).Background(bg).Render(line)
 }
 
 func (m *model) renderSidebar(width int) string {
@@ -317,10 +319,8 @@ func (m *model) listLength() int {
 }
 
 func (m *model) viewportHeight() int {
-	height := m.height - 2
-	if m.searchActive {
-		height -= 1
-	}
+	headerHeight, footerHeight, searchHeight := m.layoutHeights()
+	height := m.height - headerHeight - footerHeight - searchHeight
 	if height < 1 {
 		return 1
 	}
@@ -490,10 +490,27 @@ func (m *model) footerView(width int) string {
 	return footerStyle.Width(width).Render(line)
 }
 
+func (m *model) layoutHeights() (int, int, int) {
+	width := m.width
+	if width <= 0 {
+		return 1, 1, 0
+	}
+	header := m.headerView(width)
+	footer := m.footerView(width)
+	headerHeight := max(1, lipgloss.Height(header))
+	footerHeight := max(1, lipgloss.Height(footer))
+	searchHeight := 0
+	if m.searchActive {
+		searchHeight = max(1, lipgloss.Height(m.searchView(width)))
+	}
+	return headerHeight, footerHeight, searchHeight
+}
+
 func (m *model) emptyRow(width int) string {
 	bg := palette.bg
 	msg := emptyStyle.Foreground(palette.textDim).Background(bg).Render("No commits")
-	return rowBaseStyle.Foreground(palette.textDim).Background(bg).Width(width).MaxWidth(width).Render(msg)
+	line := padLine(msg, width)
+	return rowBaseStyle.Foreground(palette.textDim).Background(bg).Render(line)
 }
 
 func (m *model) blankRow(width int, alt bool) string {
@@ -501,7 +518,8 @@ func (m *model) blankRow(width int, alt bool) string {
 	if alt {
 		bg = palette.bgAlt
 	}
-	return rowBaseStyle.Background(bg).Width(width).MaxWidth(width).Render("")
+	line := padLine("", width)
+	return rowBaseStyle.Background(bg).Render(line)
 }
 
 func wrapText(text string, width int) []string {
@@ -543,6 +561,18 @@ func truncateText(text string, maxWidth int) string {
 		return text[:maxWidth]
 	}
 	return text[:maxWidth-3] + "..."
+}
+
+func padLine(text string, width int) string {
+	if width <= 0 {
+		return text
+	}
+	truncated := ansi.Truncate(text, width, "")
+	pad := width - lipgloss.Width(truncated)
+	if pad < 0 {
+		pad = 0
+	}
+	return truncated + strings.Repeat(" ", pad)
 }
 
 func clamp(val, minVal, maxVal int) int {
