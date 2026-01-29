@@ -418,6 +418,7 @@ func (m *model) headerView(width int) string {
 		return ""
 	}
 
+	contentWidth := max(0, width-2)
 	leftParts := []string{
 		headerTitleStyle.Render("arbor"),
 		headerSepStyle.Render("|"),
@@ -435,10 +436,22 @@ func (m *model) headerView(width int) string {
 	loaded := len(m.provider.Commits)
 	right := headerMetaStyle.Render(fmt.Sprintf("%d visible | %d loaded", visible, loaded))
 
-	space := width - lipgloss.Width(left) - lipgloss.Width(right)
+	maxRight := contentWidth - lipgloss.Width(left) - 1
+	if maxRight < 0 {
+		maxRight = 0
+	}
+	if lipgloss.Width(right) > maxRight {
+		right = ansi.Truncate(right, maxRight, "")
+	}
+
+	space := contentWidth - lipgloss.Width(left) - lipgloss.Width(right)
 	if space < 1 {
-		left = truncateText(left, max(0, width-lipgloss.Width(right)-1))
-		space = width - lipgloss.Width(left) - lipgloss.Width(right)
+		maxLeft := contentWidth - lipgloss.Width(right) - 1
+		if maxLeft < 0 {
+			maxLeft = 0
+		}
+		left = ansi.Truncate(left, maxLeft, "")
+		space = contentWidth - lipgloss.Width(left) - lipgloss.Width(right)
 		if space < 1 {
 			space = 1
 		}
@@ -452,6 +465,7 @@ func (m *model) footerView(width int) string {
 	if width <= 0 {
 		return ""
 	}
+	contentWidth := max(0, width-2)
 	hints := footerHintStyle.Render("up/down k/j move | enter files | / search | tab sidebar | q quit")
 
 	total := m.listLength()
@@ -471,14 +485,14 @@ func (m *model) footerView(width int) string {
 	}
 	status := footerStatusStyle.Render(strings.Join(statusParts, " | "))
 
-	space := width - lipgloss.Width(hints) - lipgloss.Width(status)
+	space := contentWidth - lipgloss.Width(hints) - lipgloss.Width(status)
 	if space < 1 {
-		maxHints := width - lipgloss.Width(status) - 1
+		maxHints := contentWidth - lipgloss.Width(status) - 1
 		if maxHints < 0 {
 			maxHints = 0
 		}
 		hints = footerHintStyle.Render(truncateText("up/down k/j move | enter files | / search | tab sidebar | q quit", maxHints))
-		space = width - lipgloss.Width(hints) - lipgloss.Width(status)
+		space = contentWidth - lipgloss.Width(hints) - lipgloss.Width(status)
 		if space < 1 {
 			space = 1
 		}
